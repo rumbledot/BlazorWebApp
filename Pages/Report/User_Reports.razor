@@ -1,0 +1,179 @@
+﻿@page "/user_reports/{user_id}"
+@attribute [Authorize]
+
+@using System.Net.Http
+@inject IAccountService AccountService
+@inject HttpClient client
+
+@using Newtonsoft.Json
+@using Data
+
+<h3>User Reports</h3>
+
+<div class="container" style="margin:25px;">
+    @if (display_warning)
+    {
+        <div class="card @bg_color">
+            <div class="card-body">
+                @error_message
+            </div>
+        </div>
+    }
+
+        <div class="row">
+            @if (User != null)
+            {
+                <table>
+                    <tr>
+                        <th>Name</th>
+                        <td>@User.exo_name</td>
+                    </tr>
+                    <tr>
+                        <th>Exo title (user role)</th>
+                        <td>@User.exo_title (@User.role)</td>
+                    </tr>
+                    <tr>
+                        <th>Email</th>
+                        <td>@User.email</td>
+                    </tr>
+                </table>
+            }
+        </div>
+
+        <div class="row">
+            @if (Invoices_reports != null && Invoices_reports.Count > 0)
+            {
+                <table class="table table-bordered table-striped table-responsive">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>Invoice #</th>
+                            <th>Branch</th>
+                            <th>Supplier</th>
+                            <th>Sub Total</th>
+                            <th>Tax</th>
+                            <th>Total</th>
+                            <th>Post Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (Invoice inv in Invoices_reports)
+                        {
+                            <tr class="justify-content-center">
+                                <td>@inv.invoice_number</td>
+                                <td>@inv.branch</td>
+                                <td>(@inv.supplier_accno) @inv.supplier_name</td>
+                                <td>@inv.invoice_sub_total</td>
+                                <td>@inv.invoice_tax</td>
+                                <td>@inv.invoice_total</td>
+                                <td>@inv.invoice_date</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+
+@code {
+    [Parameter]
+    public string user_id { get; set; }
+
+    KL_User User;
+
+    int uid = 0;
+    List<Invoice> Invoices_reports = new List<Invoice>();
+
+    bool display_warning = false;
+    string error_message = "some error";
+    string bg_color = "bg-success";
+
+    protected override async void OnInitialized()
+    {
+        try
+        {
+            await DisplayToast($"Loading {user_id}");
+
+            if (user_id != null && int.TryParse(user_id, out uid))
+            {
+                GetUserDetails(uid);
+
+                GetApprovedInvoicesBy(uid);
+            }
+        }
+        catch (Exception ex)
+        {
+            await DisplayToast($"Page load failed \n {ex.Message} \n {ex.StackTrace}");
+        }
+    }
+
+    private async void GetUserDetails(int user_id)
+    {
+        try
+        {
+            var api_name = $"http://localhost:5555/kl/user/getuser/{user_id}";
+            var httpResponse = await client.GetAsync(api_name);
+
+            if (httpResponse.IsSuccessStatusCode)
+            {
+                Users_Response responseData = JsonConvert.DeserializeObject<Users_Response>(await httpResponse.Content.ReadAsStringAsync());
+
+                if (responseData.status_code == Response_Code.ok)
+                {
+                    User = responseData.Users[0];
+
+                    StateHasChanged();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await DisplayToast($"Failed to fetch user's report \n {ex.Message} \n {ex.StackTrace}");
+        }
+    }
+
+    private async void GetApprovedInvoicesBy(int user_id)
+    {
+        try
+        {
+            User_Accno user_accno = new User_Accno()
+            {
+                user_id = user_id,
+                accno = -1
+            };
+
+            var api_name = "http://localhost:5555/kl/invoice/FetchApproved";
+            var httpResponse = await client.PostAsJsonAsync(api_name, user_accno);
+
+            await DisplayToast($"response {httpResponse.StatusCode} : {httpResponse.RequestMessage}");
+
+            if (httpResponse.IsSuccessStatusCode)
+            {
+                Pending_Invoices_Response responseData = JsonConvert.DeserializeObject<Pending_Invoices_Response>(await httpResponse.Content.ReadAsStringAsync());
+
+                Invoices_reports = responseData.invoices;
+
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await DisplayToast($"Failed to fetch user's report \n {ex.Message} \n {ex.StackTrace}");
+        }
+    }
+
+    private async Task DisplayToast(string message)
+    {
+        display_warning = true;
+
+        error_message = message;
+
+        StateHasChanged();
+
+        await Task.Delay(3000);
+
+        error_message = "";
+        display_warning = false;
+
+        StateHasChanged();
+    }
+}

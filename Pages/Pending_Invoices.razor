@@ -1,0 +1,303 @@
+﻿@page "/pending_invoices/{user_id}"
+@attribute [Authorize]
+
+@using System.Net.Http
+@inject IAccountService AccountService
+@inject HttpClient client
+@inject IJSRuntime js
+
+@using Newtonsoft.Json
+@using Data
+
+<h3>Pending Invoices</h3>
+
+<div class="container" style="margin:25px;">
+
+    @if (display_warning) {
+    <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="mr-auto">Warning</strong>
+            <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="toast-body">
+            @error_message
+        </div>
+    </div>
+    }
+
+    <nav>
+        <div class="nav nav-tabs" id="nav-tab" role="tablist">
+            <a class="nav-link active" id="nav-invoices-tab" data-toggle="tab" href="#nav-invoices" role="tab" aria-controls="nav-invoices" aria-selected="true">Invoices</a>
+            @if (Invoice != null && Lines != null && Lines.Count > 0)
+            {
+                <a class="nav-link" id="nav-details-tab" data-toggle="tab" href="#nav-details" role="tab" aria-controls="nav-details" aria-selected="false">@Invoice.supplier_name - @Invoice.invoice_number</a>
+                if (!details_loaded) FocusToElemenetWithID("nav-details-tab");
+            }
+        </div>
+    </nav>
+    <br />
+
+    <div class="tab-content" id="nav-tabContent">
+        <div class="tab-pane fade show active" id="nav-invoices" role="tabpanel" aria-labelledby="nav-invoices-tab">
+            @if (Invoices != null)
+            {
+                <table class="table table-bordered table-striped table-responsive">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>Supplier Name</th>
+                            <th>Invoice #</th>
+                            <th>Invoice Date</th>
+                            <th>Due</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (Invoice invoice in Invoices)
+                        {
+                            <tr class="justify-content-center">
+                                <td><a @onclick="() => GetInvoiceDetails(invoice.document_id)">@invoice.supplier_name  </a></td>
+                                <td><a @onclick="() => GetInvoiceDetails(invoice.document_id)">@invoice.invoice_number </a></td>
+                                <td><a @onclick="() => GetInvoiceDetails(invoice.document_id)">@invoice.invoice_date   </a></td>
+                                <td><a @onclick="() => GetInvoiceDetails(invoice.document_id)">@invoice.invoice_due    </a></td>
+                                <td><a @onclick="() => GetInvoiceDetails(invoice.document_id)">@invoice.invoice_total  </a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        <div class="tab-pane fade" id="nav-details" role="tabpanel" aria-labelledby="nav-details-tab">
+            @if (Invoice != null && Lines != null && Lines.Count > 0)
+            {
+                <br />
+                <nav>
+                    <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                        <a class="nav-link active" id="nav-details-main-tab" data-toggle="tab" href="#nav-details-main" role="tab" aria-controls="nav-details-main" aria-selected="false">Details</a>
+                        <a class="nav-link" id="nav-details-history-tab" data-toggle="tab" href="#nav-details-history" role="tab" aria-controls="nav-details-history" aria-selected="false">History</a>
+                        <a class="nav-link" id="nav-details-approved-tab" data-toggle="tab" href="#nav-details-approved" role="tab" aria-controls="nav-details-approved" aria-selected="false">Approved</a>
+                        <a class="nav-link" id="nav-details-document-tab" data-toggle="tab" href="#nav-details-document" role="tab" aria-controls="nav-details-document" aria-selected="false">PDF Document</a>
+                    </div>
+                </nav>
+                <br />
+
+                <div class="tab-content" id="nav-tabContent">
+                    <div class="tab-pane fade show active" id="nav-details-main" role="tabpanel" aria-labelledby="nav-details-main-tab">
+                        <div class="container">
+                            <div class="row">
+                                <div class="col-sm">
+                                    <table>
+                                        <tr>
+                                            <th>Supplier</th>
+                                            <td>@Invoice.supplier_name</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Tax Number</th>
+                                            <td>@Invoice.supplier_gst</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Account</th>
+                                            <td>@Invoice.supplier_accno</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Currency</th>
+                                            <td>@Invoice.currency</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div class="col-sm">
+                                    <table>
+                                        <tr>
+                                            <th>Invoice Number</th>
+                                            <td>@Invoice.invoice_number</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Invoice Date</th>
+                                            <td>@Invoice.invoice_date</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Period</th>
+                                            <td>@Invoice.invoice_period</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Due</th>
+                                            <td>@Invoice.invoice_due</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div class="col-sm">
+                                    <div class="row">
+                                        <table>
+                                            <tr>
+                                                <th>Order Ref.</th>
+                                                <td>@Invoice.order_ref</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Branch</th>
+                                                <td>@Invoice.branch</td>
+                                            </tr>
+                                        </table>
+
+                                    </div>
+                                    <div class="row">
+                                        <table class="table table-borderless">
+                                            <thead>
+                                                <tr>
+                                                    <th>Invoice Sub Total</th>
+                                                    <th>Invoice GST</th>
+                                                    <th>Invoice Total</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>@Invoice.invoice_sub_total</td>
+                                                    <td>@Invoice.invoice_tax</td>
+                                                    <td>@Invoice.invoice_total</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <table class="table table-bordered table-striped table-responsive">
+                                <thead class="thead-dark">
+                                    <tr>
+                                        <th>Branch</th>
+                                        <th>Line code</th>
+                                        <th>Description</th>
+                                        <th>Quantity</th>
+                                        <th>Unit Price</th>
+                                        <th>Sub Total</th>
+                                        <th>Tax Rate</th>
+                                        <th>GST</th>
+                                        <th>Line Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (Invoice_Line line in Lines)
+                                    {
+                                        <tr class="justify-content-center">
+                                            <td>@line.branch</td>
+                                            <td>@line.line_code</td>
+                                            <td>@line.description</td>
+                                            <td>@line.quantity</td>
+                                            <td>@line.line_unit_price</td>
+                                            <td>@line.line_sub_total</td>
+                                            <td>@line.tax_rate</td>
+                                            <td>@line.line_tax</td>
+                                            <td>@line.line_total</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="nav-details-history" role="tabpanel" aria-labelledby="nav-details-history-tab">
+                        <div>
+                            <table class="table table-bordered table-striped table-responsive">
+                                <thead class="thead-dark">
+                                    <tr>
+                                        <th>Approval</th>
+                                        <th>Date</th>
+                                        <th>Reason</th>
+                                        <th>Role</th>
+                                        <th>User</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (Approval hist in History)
+                                    {
+                                        <tr class="justify-content-center">
+                                            <td>
+                                                @if (hist.is_approved)
+                                                {
+                                                    <span class="oi oi-check"></span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="oi oi-x"></span>
+                                                }
+                                            </td>
+                                            <td>@hist.approval_date</td>
+                                            <td>@hist.reason</td>
+                                            <td>@hist.user_role</td>
+                                            <td>@hist.user_name</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="nav-details-approved" role="tabpanel" aria-labelledby="nav-details-approved-tab">
+                        <div>
+                            <table class="table table-bordered table-striped table-responsive">
+                                <thead class="thead-dark">
+                                    <tr>
+                                        <th>Invoice #</th>
+                                        <th>Branch</th>
+                                        <th>Supplier</th>
+                                        <th>Sub Total</th>
+                                        <th>Tax Rate</th>
+                                        <th>Total</th>
+                                        <th>Post Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (Invoice inv in Approved)
+                                    {
+                                        <tr class="justify-content-center">
+                                            <td>@inv.invoice_number</td>
+                                            <td>@inv.branch</td>
+                                            <td>@inv.supplier_name</td>
+                                            <td>@inv.invoice_sub_total</td>
+                                            <td>@inv.invoice_tax</td>
+                                            <td>@inv.invoice_total</td>
+                                            <td>@inv.invoice_date</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="nav-details-document" role="tabpanel" aria-labelledby="nav-details-document-tab">
+                        <div class="container">
+                            <div class="row">
+                                <div class="col-12">
+                                    <button type="button" class="btn btn-info" @onclick="@(p => DownloadFile("report.pdf", Invoice.document_id))">Download</button>
+                                    <button type="button" class="btn btn-success" @onclick="@(p => GetInvoicePDF(Invoice.document_id))">View</button>
+                                </div>
+                            </div>
+                        </div>
+                        <br />
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card h-300">
+                                    <div id="PDF_iframe">
+                                        @if (pdf_binary != null)
+                                        {
+                                            DisplayPDFDocument("PDF_iframe");
+                                        }
+                                        else
+                                        {
+                                            RemovePDFViewer("PDF_iframe");
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+

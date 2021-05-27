@@ -1,0 +1,71 @@
+﻿@page "/"
+@attribute [Authorize]
+
+@inject IAccountService AccountService
+@inject HttpClient client
+
+@using Newtonsoft.Json
+@using Data
+
+<h1>Hello, users!</h1>
+
+<div class="row" style="margin:25px;">
+    <strong>Get Operation </strong><hr />
+
+    <button @onclick="@GetUser">Refresh</button>
+
+    @if (Users != null)
+    {
+        <table class="table table-bordered table-striped table-hover">
+            <thead class="thead-dark">
+                <tr>
+                    <th class="text-center">ID</th>
+                    <th class="text-right">Username</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (KL_User user in Users)
+                {
+                    <tr class="justify-content-center">
+                        <td><a href="/pending_invoices/@user.id.ToString()">@user.id</a></td>
+                        <td><a href="/pending_invoices/@user.id.ToString()">@user.username</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+
+    List<KL_User> Users = new List<KL_User>();
+
+    AccountService service;
+
+    protected override async Task OnInitializedAsync()
+    {
+        GetUser();
+    }
+
+    private async void GetUser()
+    {
+        try
+        {
+            var api_name = "http://localhost:5555/kl/user/getusers";
+            var httpResponse = await client.GetAsync(api_name);
+
+            if (httpResponse.IsSuccessStatusCode)
+            {
+                Users_Response responseData = JsonConvert.DeserializeObject<Users_Response>(await httpResponse.Content.ReadAsStringAsync());
+
+                Users = responseData.Users;
+
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+    }
+}

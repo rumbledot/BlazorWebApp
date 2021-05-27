@@ -1,0 +1,67 @@
+﻿@page "/account/login"
+@inject IAccountService AccountService
+@inject IAlertService AlertService
+@inject ILocalStorageService storage
+@inject NavigationManager NavigationManager
+
+<div class="card">
+    <h4 class="card-header">Login</h4>
+    <div class="card-body">
+        <EditForm Model="@model" OnValidSubmit="OnValidSubmit">
+            <DataAnnotationsValidator />
+            <div class="form-group">
+                <label>Username</label>
+                <InputText @bind-Value="model.username" class="form-control" />
+                <ValidationMessage For="@(() => model.username)" />
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <InputText @bind-Value="model.password" type="password" class="form-control" />
+                <ValidationMessage For="@(() => model.password)" />
+            </div>
+            <button disabled="@loading" class="btn btn-primary">
+                @if (loading)
+                {
+                    <span class="spinner-border spinner-border-sm mr-1"></span>
+                }
+                Login
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <p>@error_msg</p>
+    </div>
+</div>
+
+    @code {
+        private Data.Login model = new Data.Login();
+        private bool loading;
+        private string error_msg = "";
+
+        private async void OnValidSubmit()
+        {
+            // reset alerts on submit
+            AlertService.Clear();
+
+            loading = true;
+            try
+            {
+                error_msg = model.username + " : " + model.password;
+                await AccountService.Login(model);
+                storage.User = AccountService.User;
+                var returnUrl = NavigationManager.QueryString("returnUrl") ?? "";
+                NavigationManager.NavigateTo(returnUrl);
+            }
+            catch (Exception ex)
+            {
+                error_msg = model.username + " : " + model.password + "\n";
+                error_msg += ex.Message;
+                AlertService.Error(ex.Message);
+                loading = false;
+                StateHasChanged();
+            }
+        }
+    }
